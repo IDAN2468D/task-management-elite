@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "frontend",
+    "slug": "frontend",
+    "version": "1.0.0",
+    "scheme": "taskmaster-ai",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.idankzam.taskmaster"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.idankzam.taskmaster",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosClientId": "980248010841-7m9vgpim1c7fhnvldh5cmv49qnlfoige.apps.googleusercontent.com",
+          "iosUrlScheme": "com.googleusercontent.apps.980248010841-7m9vgpim1c7fhnvldh5cmv49qnlfoige"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "43726ee2-e03d-4743-b941-fa68f9dabf72"
+      }
+    }
+  }
+}

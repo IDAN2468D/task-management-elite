@@ -1,0 +1,42 @@
+# Dependency folders
+node_modules/
+
+# Expo
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/expo-env.d.ts
+
+# Native
+frontend/.kotlin/
+frontend/*.orig.*
+frontend/*.jks
+frontend/*.p8
+frontend/*.p12
+frontend/*.key
+frontend/*.mobileprovision
+
+# Metro
+frontend/.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+*.pem
+
+# Env files
+.env
+.env*.local
+frontend/.env*.local
+backend/.env
+
+# TypeScript
+*.tsbuildinfo
+
+# Generated native folders
+frontend/ios/
+frontend/android/
