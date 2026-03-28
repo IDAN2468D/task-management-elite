@@ -184,8 +184,8 @@ export default function DashboardScreen() {
   return (
     <View className="flex-1 bg-[#020617]">
       {isOptimizing && <AIOverlay />}
-      <View className="w-full absolute top-0 z-50">
-        <BlurView intensity={30} tint="dark" className="pt-12 pb-4 px-6 border-b border-white/5 flex-row-reverse justify-between items-center">
+      <View className="w-full absolute top-0 z-50 bg-[#020617]">
+        <View className="pt-12 pb-4 px-6 border-b border-white/5 flex-row-reverse justify-between items-center">
           <View className="items-end">
             <Text className="text-white text-2xl font-black tracking-tighter">השלט שלי</Text>
             <Text className="text-slate-500 text-[9px] font-bold uppercase tracking-[2px]">Elite Dashboard</Text>
@@ -218,7 +218,7 @@ export default function DashboardScreen() {
               <Plus color="#60a5fa" size={20} />
             </TouchableOpacity>
           </View>
-        </BlurView>
+        </View>
       </View>
 
       <ScrollView 
