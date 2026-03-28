@@ -1,16 +1,121 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet, Image, Pressable } from 'react-native';
 import { Plus, LayoutTemplate, ListTodo, Bot, Sparkles, Brain, AlertCircle, TrendingUp } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { useAuth } from '../../context/AuthContext';
 import { Project, TaskItem, ProjectService, TaskService, AiService, BurnoutAssessment } from '../../services/api';
 import TaskComponent from '../../components/TaskComponent';
-import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeInUp, LinearTransition, useAnimatedStyle, useSharedValue, withSpring, FadeIn, FadeOut, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+
+// AI Overlay Component
+const AIOverlay = () => {
+  const rotation = useSharedValue(0);
+  const breath = useSharedValue(1);
+
+  useEffect(() => {
+    rotation.value = withRepeat(withTiming(360, { duration: 4000, easing: Easing.linear }), -1, false);
+    breath.value = withRepeat(withTiming(1.2, { duration: 1500, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, []);
+  
+  const animatedMesh = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }, { scale: breath.value }]
+  }));
+
+  return (
+    <Animated.View entering={FadeIn} exiting={FadeOut} style={StyleSheet.absoluteFill} className="z-[100] items-center justify-center">
+      <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+      <Animated.View style={[{ width: 300, height: 300, borderRadius: 150, backgroundColor: '#818cf8', opacity: 0.15, position: 'absolute' }, animatedMesh]} />
+      <Animated.View style={[{ width: 250, height: 250, borderRadius: 125, backgroundColor: '#c084fc', opacity: 0.15, position: 'absolute' }, animatedMesh]} />
+      
+      <View className="items-center z-10 p-8 rounded-3xl bg-slate-900/60 border border-white/10 shadow-2xl">
+        <Animated.View style={{ transform: [{ scale: breath }] }}>
+           <Sparkles color="#818cf8" size={48} className="mb-4" />
+        </Animated.View>
+        <Text className="text-white text-2xl font-black text-center mb-2">AI חושב...</Text>
+        <Text className="text-indigo-200 text-sm text-center">מסנכרן כוונות, מנתח עומס ומסדר מחדש...</Text>
+      </View>
+    </Animated.View>
+  );
+};
+
+const ProjectCard = ({ project, count }: { project: any, count: number }) => {
+  const router = useRouter();
+  const themeColor = project.themeColor || '#6366f1';
+  
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }]
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/project/${project._id}`);
+  };
+
+  return (
+    <Animated.View style={animatedStyle} className="ml-4">
+      <Pressable 
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+        className="w-44 h-52 rounded-[32px] overflow-hidden border border-white/10 relative shadow-2xl"
+      >
+        <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
+        <View className="p-6 h-full justify-between">
+          <View className="flex-row-reverse justify-between items-start">
+            <View 
+              className="w-12 h-12 rounded-2xl items-center justify-center border border-white/5" 
+              style={{ backgroundColor: `${themeColor}20` }}
+            >
+              <LayoutTemplate color={themeColor} size={24} />
+            </View>
+            {project.isAIGenerated && (
+              <View className="bg-indigo-500/10 p-1.5 rounded-full border border-indigo-500/20">
+                <Sparkles color="#818cf8" size={12} />
+              </View>
+            )}
+          </View>
+
+          <View className="items-end">
+            <Text className="text-white text-xl font-black text-right tracking-tight leading-6 mb-2" numberOfLines={2}>
+              {project.name}
+            </Text>
+            <View className="flex-row-reverse items-center">
+              <View className="w-1.5 h-1.5 rounded-full ml-2" style={{ backgroundColor: themeColor }} />
+              <Text className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                {count} Tasks
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        {/* Decorative Glow */}
+        <View 
+          className="absolute -top-10 -right-10 w-24 h-24 rounded-full opacity-20 blur-3xl pointer-events-none"
+          style={{ backgroundColor: themeColor }}
+        />
+      </Pressable>
+    </Animated.View>
+  );
+};
 
 export default function DashboardScreen() {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [burnout, setBurnout] = useState<BurnoutAssessment | null>(null);
 
   const router = useRouter();
@@ -62,46 +167,63 @@ export default function DashboardScreen() {
   const handleOptimizeSchedule = async () => {
     if (tasks.length < 2) return;
     try {
-      setLoading(true);
+      setIsOptimizing(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       const newOrder = await AiService.getSchedule(tasks);
-      // For now we just show a success message as rearranging might need a specific sort index in DB
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      alert('AI הציע את הסדר הטוב ביותר למשימות שלך לפי עומס וזמני הגשה!');
+      // Wait a moment for aesthetic feel
+      await new Promise(resolve => setTimeout(resolve, 800));
       fetchData();
     } catch (e) {
       console.error('Optimization error:', e);
     } finally {
-      setLoading(false);
+      setIsOptimizing(false);
     }
   };
 
   return (
-    <View className="flex-1 bg-slate-950">
-      <View className="w-full bg-slate-900 pt-14 border-b border-white/5 shadow-2xl z-20">
-        <View className="px-6 py-4 flex-row-reverse justify-between items-center">
-          <Text className="text-white text-3xl font-black tracking-tighter text-right">השלט שלי</Text>
+    <View className="flex-1 bg-[#020617]">
+      {isOptimizing && <AIOverlay />}
+      <View className="w-full absolute top-0 z-50">
+        <BlurView intensity={30} tint="dark" className="pt-12 pb-4 px-6 border-b border-white/5 flex-row-reverse justify-between items-center">
+          <View className="items-end">
+            <Text className="text-white text-2xl font-black tracking-tighter">השלט שלי</Text>
+            <Text className="text-slate-500 text-[9px] font-bold uppercase tracking-[2px]">Elite Dashboard</Text>
+          </View>
           <View className="flex-row items-center gap-3">
             <TouchableOpacity 
               onPress={() => router.push('/ai-assistant')}
-              className="bg-brand-primary/20 p-2.5 rounded-xl border border-brand-secondary/30"
+              className="bg-indigo-500/10 p-2.5 rounded-xl border border-indigo-500/20"
             >
-              <Bot color="#818cf8" size={24} />
+              <Sparkles color="#818cf8" size={20} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => router.push('/settings')}
+              className="w-10 h-10 rounded-xl border border-white/5 overflow-hidden bg-slate-900 shadow-sm"
+            >
+               {user?.picture ? (
+                 <Image source={{ uri: user.picture }} className="w-full h-full" />
+               ) : (
+                 <View className="flex-1 items-center justify-center bg-slate-800">
+                    <Text className="text-white text-xs font-black">{user?.name?.charAt(0) || 'U'}</Text>
+                 </View>
+               )}
             </TouchableOpacity>
 
             <TouchableOpacity 
               onPress={() => router.push('/add-task')}
-              className="bg-blue-500/20 p-2.5 rounded-2xl border border-blue-400/30"
+              className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-400/20"
             >
-              <Plus color="#60a5fa" size={24} />
+              <Plus color="#60a5fa" size={20} />
             </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </View>
 
       <ScrollView 
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16, paddingTop: 20 }}
+        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16, paddingTop: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={fetchData} tintColor="#6366f1" colors={["#6366f1"]} />
@@ -110,8 +232,9 @@ export default function DashboardScreen() {
         {burnout && (
           <Animated.View 
             entering={FadeInUp.delay(200)} 
-            className="mb-8 overflow-hidden rounded-card border border-white/10 bg-slate-900/60 shadow-2xl"
+            className="mb-8 overflow-hidden rounded-[32px] border border-white/10 bg-white/5 relative shadow-2xl"
           >
+            <BlurView intensity={15} tint="dark" style={StyleSheet.absoluteFill} />
             <View className="p-6">
               <View className="flex-row-reverse justify-between items-center mb-4">
                 <View className="flex-row-reverse items-center gap-3">
@@ -157,11 +280,14 @@ export default function DashboardScreen() {
         )}
 
         <View className="mb-10">
-          <View className="flex-row-reverse items-center mb-6 px-2">
-            <View className="w-8 h-8 bg-indigo-500/20 rounded-lg items-center justify-center ml-3">
+          <View className="flex-row-reverse items-center mb-6 px-1">
+            <View className="items-end flex-1">
+              <Text className="text-white text-lg font-black">הפרויקטים שלי</Text>
+              <Text className="text-slate-500 text-[8px] font-bold uppercase tracking-widest">Active Workspace</Text>
+            </View>
+            <View className="w-10 h-10 bg-indigo-500/10 rounded-xl items-center justify-center ml-3 border border-indigo-500/10">
               <LayoutTemplate color="#818cf8" size={18} />
             </View>
-            <Text className="text-slate-300 text-xl font-bold text-right">הפרויקטים שלי</Text>
           </View>
           
           <ScrollView 
@@ -181,62 +307,39 @@ export default function DashboardScreen() {
             </TouchableOpacity>
 
             {projects.map(project => (
-              <TouchableOpacity 
+              <ProjectCard 
                 key={project._id} 
-                onPress={() => router.push(`/project/${project._id}`)}
-                className="ml-4 w-48 h-56 rounded-pill overflow-hidden border border-white/10 p-7 justify-between shadow-2xl" 
-                style={{ 
-                  backgroundColor: 'rgba(15, 23, 42, 0.6)', 
-                  borderColor: (project.themeColor || '#6366f1') + '40'
-                }}
-              >
-                <View className="flex-row-reverse justify-between items-start">
-                  <View 
-                    className="w-14 h-14 rounded-2xl items-center justify-center shadow-lg" 
-                    style={{ backgroundColor: (project.themeColor || '#6366f1') + '20' }}
-                  >
-                    <LayoutTemplate color={project.themeColor || '#6366f1'} size={28} />
-                  </View>
-                  {project.isAIGenerated && (
-                    <View className="bg-brand-primary/20 px-3 py-1.5 rounded-full border border-brand-secondary/30">
-                      <Sparkles color="#818cf8" size={10} />
-                    </View>
-                  )}
-                </View>
-
-                <View className="items-end">
-                  <Text className="text-white text-2xl font-black text-right leading-7" numberOfLines={2}>
-                    {project.name}
-                  </Text>
-                  <View className="flex-row-reverse items-center mt-3 bg-white/5 py-1 px-3 rounded-xl border border-white/5">
-                    <View className="h-2 w-2 rounded-full bg-status-success ml-2" />
-                    <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                      {project.isAIGenerated ? 'AI Optimized' : 'Active'}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                project={project} 
+                count={tasks.filter(t => t.projectId === project._id || (typeof t.projectId === 'object' && t.projectId?._id === project._id)).length} 
+              />
             ))}
           </ScrollView>
         </View>
 
         <View className="flex-1">
-          <View className="flex-row-reverse items-center mb-6 px-2">
-             <View className="w-8 h-8 bg-blue-500/20 rounded-lg items-center justify-center ml-3">
+          <View className="flex-row-reverse items-center mb-6 px-1">
+             <View className="flex-1 items-end">
+              <Text className="text-white text-lg font-black">משימות להיום</Text>
+              <Text className="text-slate-500 text-[8px] font-bold uppercase tracking-widest">Daily Execution Plan</Text>
+            </View>
+            <View className="w-10 h-10 bg-blue-500/10 rounded-xl items-center justify-center ml-3 border border-blue-500/10">
               <ListTodo color="#60a5fa" size={18} />
             </View>
-            <View className="flex-1 flex-row-reverse justify-between items-center">
-              <Text className="text-slate-300 text-xl font-bold text-right">משימות להיום</Text>
+          </View>
+          
+          <View className="mb-4 flex-row-reverse justify-between items-center px-1">
+              <View className="bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                <Text className="text-emerald-400 text-[10px] font-bold">{tasks.filter(t => t.completed).length}/{tasks.length} Completed</Text>
+              </View>
               {tasks.length > 1 && (
                 <TouchableOpacity 
                   onPress={handleOptimizeSchedule}
-                  className="bg-brand-primary/20 px-4 py-2 rounded-pill border border-brand-primary/30 flex-row-reverse items-center gap-2"
+                  className="flex-row-reverse items-center gap-1.5"
                 >
-                  <Sparkles color="#818cf8" size={14} />
-                  <Text className="text-brand-primary text-[10px] font-black uppercase">Optimize</Text>
+                  <Sparkles color="#818cf8" size={12} />
+                  <Text className="text-indigo-400 text-[10px] font-black uppercase tracking-wider">AI Optimize</Text>
                 </TouchableOpacity>
               )}
-            </View>
           </View>
           
           <View className="gap-y-3">

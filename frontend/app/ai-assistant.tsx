@@ -171,7 +171,19 @@ export default function AiAssistantScreen() {
       </ScrollView>
 
       {/* Input Area */}
-      <View className="bg-slate-950 pb-8 pt-2">
+      <View 
+        style={{ 
+          paddingBottom: Math.max(insets.bottom, 20) + 16, 
+          paddingTop: 12,
+          backgroundColor: '#020617',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255,255,255,0.05)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -10 },
+          shadowOpacity: 0.2,
+          shadowRadius: 20,
+        }}
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="max-h-[60px] mb-4" contentContainerStyle={{ paddingHorizontal: 20, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 }}>
           {suggestions.map((suggestion, index) => (
             <TouchableOpacity key={index} className="flex-row-reverse items-center bg-slate-900 py-3.5 px-6 rounded-pill border border-brand-primary/20 shadow-sm active:bg-slate-800" onPress={() => sendMessage(typeof suggestion === 'string' ? suggestion : suggestion.text)}>

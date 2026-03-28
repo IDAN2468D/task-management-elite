@@ -5,12 +5,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const getApiUrl = () => {
   // Hardcoded to your computer's local IP address (from Expo logs) 
   // so physical devices connected to the same WiFi can reach the backend.
-  return process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.143:5000/api';
+  return process.env.EXPO_PUBLIC_API_URL || 'https://task-management-elite.onrender.com/api';
 };
 
 const api = axios.create({
   baseURL: getApiUrl(),
-  timeout: 10000,
+  timeout: 60000, // 60s for Render cold starts
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  }
 });
 
 api.interceptors.request.use(async (config) => {
@@ -158,6 +162,17 @@ export const AiService = {
   getBurnoutRisk: async () => {
     const response = await api.get<BurnoutAssessment>('/ai/burnout-risk');
     return response.data;
+  },
+  // Simple probe to wake up the server (Render free tier)
+  warmup: async () => {
+    try {
+      // Hit the health endpoint (which is at the root, so we use axios directly or a relative path if handled)
+      const rootUrl = getApiUrl().replace('/api', '');
+      await axios.get(`${rootUrl}/health`, { timeout: 10000 });
+      console.log('[API] Server warmed up successfully');
+    } catch (err) {
+      console.log('[API] Warmup probe failed or server still waking up');
+    }
   }
 };
 
